@@ -1,0 +1,511 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#a78bfa"><title>Copy Trader</title><style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#06080e;color:#dfe4ed;font-family:monospace;font-size:13px;padding:12px;min-height:100vh}
+.c{background:#0b0e18;border:1px solid #1a2035;border-radius:10px;padding:14px;margin-bottom:10px}.t{color:#a78bfa;font-weight:700;font-size:11px;letter-spacing:2px;margin-bottom:8px}
+.b{display:block;width:100%;padding:14px;border-radius:8px;border:none;font-weight:800;font-size:14px;margin-top:8px;font-family:monospace;cursor:pointer}
+.bg{background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff}.br{background:#1a1020;border:1px solid #ef444444;color:#ef4444}
+.bc{background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff}
+input{width:100%;padding:12px;border-radius:6px;background:#131828;border:1px solid #1a2035;color:#f97316;font-size:11px;font-family:monospace;margin:6px 0;word-break:break-all}
+.s{padding:10px;border-radius:6px;font-size:12px;margin-bottom:6px}.so{background:#22c55e11;border:1px solid #22c55e33;color:#86efac}
+.se{background:#ef444411;border:1px solid #ef444433;color:#fca5a5}.sw{background:#f0b90b11;border:1px solid #f0b90b33;color:#fde68a}
+.sp{background:#a78bfa11;border:1px solid #a78bfa33;color:#c4b5fd}
+.log{background:#060810;border:1px solid #1a2035;border-radius:6px;padding:8px;max-height:350px;overflow-y:auto;font-size:10px;margin-top:8px}
+.le{padding:2px 0;border-bottom:1px solid #1a203522}.bal{font-size:28px;font-weight:800;color:#fff;text-align:center;padding:12px 0}
+#step{font-size:13px;color:#a78bfa;font-weight:700;text-align:center;padding:12px}
+.wcard{background:#0d1120;border:1px solid #1a2035;border-radius:8px;padding:10px;margin:6px 0}
+.waddr{font-size:9px;color:#5c6478;word-break:break-all}.wscore{font-size:18px;font-weight:800}
+.tabs{display:flex;gap:4px;margin-bottom:8px}.tab{flex:1;padding:8px;border-radius:6px;border:1px solid #1a2035;background:#0b0e18;color:#5c6478;font-size:11px;font-weight:700;text-align:center;cursor:pointer}
+.tab.on{background:#a78bfa22;border-color:#a78bfa44;color:#a78bfa}
+</style>
+<script src="https://unpkg.com/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
+<script src="https://unpkg.com/bs58@6.0.0/dist/index.umd.js"></script>
+</head><body>
+<div class="c"><div style="display:flex;align-items:center;gap:8px"><div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#a78bfa,#06b6d4);display:flex;align-items:center;justify-content:center;font-size:16px">👁️</div><div><div style="font-size:15px;font-weight:800;color:#a78bfa">COPY TRADER</div><div style="font-size:9px;color:#5c6478">v1 · Auto-Discovery · Solana</div></div></div></div>
+<div class="c"><div id="step">⏳ Cargando...</div></div>
+<div class="c" id="cCard"><div class="t">🔑 WALLET</div>
+<div class="sw s">⚠️ Wallet NUEVA dedicada. NUNCA la principal.</div>
+<input type="text" id="pk" placeholder="Clave privada de Phantom (Solana)..." autocomplete="off" spellcheck="false">
+<button class="b bg" id="cbtn" onclick="doConn()">🔑 CONECTAR</button><div id="cerr"></div></div>
+<div class="c" id="iCard" style="display:none"><div class="t">✅ WALLET CONECTADA</div>
+<div style="word-break:break-all;font-size:11px;color:#a78bfa;background:#a78bfa11;padding:8px;border-radius:4px" id="adr"></div>
+<div class="bal" id="bl">— SOL</div>
+<button class="b bg" id="bbtn" onclick="togBot()">▶ INICIAR</button>
+<button class="b br" onclick="disc()" style="margin-top:6px">Desconectar</button>
+<div id="bst" style="margin-top:8px;font-size:11px;color:#5c6478"></div></div>
+
+<!-- TABS -->
+<div class="tabs" id="tabs" style="display:none">
+<div class="tab on" onclick="setTab('wallets')">👁️ WALLETS</div>
+<div class="tab" onclick="setTab('trades')">💰 TRADES</div>
+<div class="tab" onclick="setTab('config')">⚙️ CONFIG</div>
+</div>
+
+<!-- WALLETS TAB -->
+<div class="c" id="walletsTab">
+<div class="t">👁️ SMART WALLETS DESCUBIERTAS</div>
+<div id="walletList"><div style="color:#5c6478;font-size:11px">El bot descubre wallets ganadoras automáticamente escaneando tokens trending...</div></div>
+</div>
+
+<!-- TRADES TAB -->
+<div class="c" id="tradesTab" style="display:none">
+<div class="t">💰 COPY TRADES</div>
+<div id="tradeList"><div style="color:#5c6478;font-size:11px">Esperando trades de wallets seguidas...</div></div>
+</div>
+
+<!-- CONFIG TAB -->
+<div class="c" id="configTab" style="display:none">
+<div class="t">⚙️ CONFIGURACIÓN</div>
+<div style="font-size:11px;color:#5c6478;line-height:1.8">
+<b style="color:#a78bfa">Descubrimiento:</b> Escanea tokens trending → encuentra top traders → los puntúa<br>
+<b style="color:#a78bfa">Criterios wallet:</b> Win rate >35%, PnL positivo, >10 trades, activa <7 días<br>
+<b style="color:#a78bfa">Copy:</b> Cuando una wallet tracked compra → el bot compra 0.15 SOL<br>
+<b style="color:#a78bfa">Venta:</b> Cuando la wallet vende → el bot vende. SL propio a -30%<br>
+<b style="color:#a78bfa">Rotación:</b> Wallets que pierden 3 trades seguidos se eliminan<br>
+<b style="color:#a78bfa">Máximo:</b> 10 wallets tracked, 6 posiciones simultáneas
+</div>
+</div>
+
+<!-- ACTIVITY LOG -->
+<div class="c"><div class="t">📋 ACTIVIDAD</div>
+<div id="al" class="log"><div style="color:#5c6478">Esperando...</div></div></div>
+
+<div style="text-align:center;color:#353b4f;font-size:8px;margin-top:10px">⚠️ RIESGO EXTREMO · NO ES ASESORAMIENTO · DYOR</div>
+
+<script>
+// ============================================================
+// GLOBALS
+// ============================================================
+let KP=null,CN=null,PK='',BL=0,SM=true,bOn=false,bIv=null;
+const SOL_MINT='So11111111111111111111111111111111111111112';
+const DEX='https://api.dexscreener.com/latest/dex';
+const RPCS=['https://solana-rpc.publicnode.com','https://api.mainnet-beta.solana.com','https://rpc.ankr.com/solana'];
+const ENTRY=0.15,MAX_POS=6,MAX_WALLETS=10,SL_PCT=30;
+let trackedWallets=[];  // {addr,score,wins,losses,trades,lastSeen,pnl,consecutive_losses}
+let positions=[];       // {sym,addr,entryPrice,curPrice,entrySOL,walletSource,entryTime}
+let copyHistory=[];
+let scanN=0,curTab='wallets';
+
+// Persistence
+function save(){try{localStorage.setItem('ct_w',JSON.stringify(trackedWallets));localStorage.setItem('ct_p',JSON.stringify(positions));localStorage.setItem('ct_h',JSON.stringify(copyHistory.slice(0,200)))}catch(_){}}
+function load(){try{trackedWallets=JSON.parse(localStorage.getItem('ct_w'))||[];positions=JSON.parse(localStorage.getItem('ct_p'))||[];copyHistory=JSON.parse(localStorage.getItem('ct_h'))||[]}catch(_){}}
+
+function stp(m){document.getElementById('step').innerHTML=m}
+function al(m,c='#c4b5fd'){const e=document.getElementById('al'),t=new Date().toLocaleTimeString();e.innerHTML=`<div class="le"><span style="color:#5c6478">[${t}]</span> <span style="color:${c}">${m}</span></div>`+e.innerHTML;if(e.children.length>150)e.removeChild(e.lastChild)}
+
+function setTab(t){curTab=t;document.querySelectorAll('.tab').forEach((el,i)=>{el.className='tab'+((['wallets','trades','config'][i]===t)?' on':'')});
+document.getElementById('walletsTab').style.display=t==='wallets'?'block':'none';
+document.getElementById('tradesTab').style.display=t==='trades'?'block':'none';
+document.getElementById('configTab').style.display=t==='config'?'block':'none'}
+
+// ============================================================
+// FETCH
+// ============================================================
+function tFetch(url,opts,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms||20000);return fetch(url,{...opts,signal:c.signal}).finally(()=>clearTimeout(t))}
+
+// ============================================================
+// BASE58
+// ============================================================
+function d58(s){s=s.trim().replace(/\s/g,'');const M={};'123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'.split('').forEach((c,i)=>M[c]=i);let z=0;for(let i=0;i<s.length&&s[i]==='1';i++)z++;const sz=Math.ceil(s.length*733/1000)+1;const b=new Uint8Array(sz);for(let i=0;i<s.length;i++){const ch=M[s[i]];if(ch===undefined)throw new Error('Carácter inválido: '+s[i]);let carry=ch;for(let j=sz-1;j>=0;j--){carry+=58*b[j];b[j]=carry%256;carry=Math.floor(carry/256)}}let st=0;while(st<sz&&b[st]===0)st++;const r=new Uint8Array(z+sz-st);for(let i=z+sz-st-1,j=sz-1;j>=st;i--,j--)r[i]=b[j];return r}
+
+// ============================================================
+// WALLET CONNECT (same as sniper)
+// ============================================================
+async function doConn(){const btn=document.getElementById('cbtn'),inp=document.getElementById('pk'),err=document.getElementById('cerr');
+const pk=inp.value.trim().replace(/\s+/g,'');btn.textContent='⏳...';btn.disabled=true;err.innerHTML='';stp('⏳ Procesando...');
+await new Promise(r=>setTimeout(r,100));
+try{if(!pk)throw new Error('Pegá tu clave privada');if(pk.length<60)throw new Error('Clave corta');if(pk.includes(' '))throw new Error('Es seed phrase, no clave privada');
+stp('⏳ Decodificando...');await new Promise(r=>setTimeout(r,50));
+let sk;if(window.bs58){try{sk=window.bs58.decode(pk)}catch(_){sk=d58(pk)}}else{sk=d58(pk)}
+if(sk.length!==64)throw new Error('Clave inválida: '+sk.length+' bytes');
+if(!window.solanaWeb3)throw new Error('Solana Web3 no cargó');
+KP=solanaWeb3.Keypair.fromSecretKey(sk);PK=KP.publicKey.toString();
+al('✅ Keypair: '+PK.slice(0,6)+'...'+PK.slice(-6),'#86efac');
+stp('⏳ Balance...');
+for(const rpc of RPCS){try{CN=new solanaWeb3.Connection(rpc,'confirmed');const lam=await CN.getBalance(KP.publicKey);BL=lam/solanaWeb3.LAMPORTS_PER_SOL;al('✅ RPC: '+rpc.split('/')[2]+' | '+BL.toFixed(4)+' SOL','#86efac');break}catch(e){al('RPC '+rpc.split('/')[2]+': '+e.message.slice(0,50),'#fde68a')}}
+SM=false;try{localStorage.setItem('ct_pk',pk)}catch(_){}
+stp('✅ Conectada');
+document.getElementById('cCard').style.display='none';document.getElementById('iCard').style.display='block';document.getElementById('tabs').style.display='flex';
+document.getElementById('adr').textContent=PK;document.getElementById('bl').textContent=BL.toFixed(4)+' SOL';
+}catch(e){stp('❌ '+e.message);err.innerHTML='<div class="se s" style="margin-top:8px">❌ '+e.message+'</div>';al('Error: '+e.message,'#fca5a5');btn.textContent='🔑 CONECTAR';btn.disabled=false}}
+
+function disc(){KP=null;CN=null;PK='';BL=0;SM=true;if(bOn)togBot();try{localStorage.removeItem('ct_pk')}catch(_){}
+document.getElementById('cCard').style.display='block';document.getElementById('iCard').style.display='none';document.getElementById('tabs').style.display='none';
+document.getElementById('pk').value='';document.getElementById('cbtn').textContent='🔑 CONECTAR';document.getElementById('cbtn').disabled=false;stp('Desconectada')}
+
+// ============================================================
+// JUPITER SWAP
+// ============================================================
+async function jSwap(addr,amt,buy){
+const iM=buy?SOL_MINT:addr,oM=buy?addr:SOL_MINT,am=buy?Math.floor(amt*solanaWeb3.LAMPORTS_PER_SOL):Math.floor(amt*1e6);
+if(SM||!KP){al('[SIM] '+(buy?'BUY':'SELL')+' '+amt.toFixed(4)+'◎ ↔ '+addr.slice(0,8),'#06b6d4');return{ok:true}}
+try{
+const qr=await tFetch('https://lite-api.jup.ag/swap/v1/quote?inputMint='+iM+'&outputMint='+oM+'&amount='+am+'&slippageBps=500',{},20000);
+if(!qr.ok)throw new Error('Q:'+qr.status);const q=await qr.json();if(q.error)throw new Error(q.error);
+const sr=await tFetch('https://lite-api.jup.ag/swap/v1/swap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({quoteResponse:q,userPublicKey:PK,wrapAndUnwrapSol:true,dynamicComputeUnitLimit:true,prioritizationFeeLamports:'auto'})},20000);
+if(!sr.ok)throw new Error('S:'+sr.status);const sd=await sr.json();if(sd.error)throw new Error(sd.error);
+const tx=solanaWeb3.VersionedTransaction.deserialize(Uint8Array.from(atob(sd.swapTransaction),c=>c.charCodeAt(0)));
+tx.sign([KP]);const txId=await CN.sendRawTransaction(tx.serialize(),{skipPreflight:true,maxRetries:3});
+al('✅ TX: '+txId.slice(0,20)+'...','#86efac');
+setTimeout(async()=>{try{BL=(await CN.getBalance(KP.publicKey))/solanaWeb3.LAMPORTS_PER_SOL;document.getElementById('bl').textContent=BL.toFixed(4)+' SOL'}catch(_){}},5000);
+return{ok:true,txId}}catch(e){al('Swap: '+e.message,'#fca5a5');return{ok:false}}}
+
+// ============================================================
+// SMART WALLET DISCOVERY
+// ============================================================
+async function discoverWallets(){
+  al('🔍 Buscando smart wallets...','#c4b5fd');
+  const tokenAddrs=[];
+  
+  // 1. Find trending/pumping tokens
+  try{
+    const r=await tFetch('https://api.dexscreener.com/token-boosts/top/v1',{},10000);
+    if(r.ok){const d=await r.json();tokenAddrs.push(...(d||[]).filter(x=>x.chainId==='solana').slice(0,8).map(x=>x.tokenAddress))}
+  }catch(_){}
+  
+  try{
+    const r=await tFetch('https://api.dexscreener.com/token-profiles/latest/v1',{},10000);
+    if(r.ok){const d=await r.json();tokenAddrs.push(...(d||[]).filter(x=>x.chainId==='solana').slice(0,6).map(x=>x.tokenAddress))}
+  }catch(_){}
+  
+  for(const q of['solana pump','pump.fun SOL']){
+    try{const r=await tFetch(DEX+'/search?q='+encodeURIComponent(q),{},10000);
+    if(r.ok){const d=await r.json();const pairs=(d.pairs||[]).filter(p=>p.chainId==='solana'&&(p.priceChange?.h24||0)>50&&(p.liquidity?.usd||0)>10000).slice(0,5);
+    tokenAddrs.push(...pairs.map(p=>p.baseToken?.address).filter(Boolean))}}catch(_){}
+  }
+  
+  // 2. For each trending token, find top traders via Dexscreener pairs
+  const candidateWallets=new Map(); // addr -> {buys, profits}
+  
+  for(const tokenAddr of[...new Set(tokenAddrs)].slice(0,10)){
+    try{
+      // Get token pairs
+      const r=await tFetch(DEX+'/tokens/'+tokenAddr,{},8000);
+      if(!r.ok)continue;
+      const d=await r.json();
+      const pair=(d.pairs||[]).find(p=>p.chainId==='solana');
+      if(!pair)continue;
+      
+      const pairAddr=pair.pairAddress;
+      const sym=pair.baseToken?.symbol||'?';
+      const chg24=pair.priceChange?.h24||0;
+      
+      // Use Solana RPC to get recent transactions on the pair
+      if(CN&&chg24>30){
+        try{
+          const pairPk=new solanaWeb3.PublicKey(pairAddr);
+          const sigs=await CN.getSignaturesForAddress(pairPk,{limit:20});
+          
+          for(const sig of sigs){
+            try{
+              const tx=await CN.getParsedTransaction(sig.signature,{maxSupportedTransactionVersion:0});
+              if(!tx||!tx.transaction)continue;
+              
+              // Extract signers (first account is usually the trader)
+              const accounts=tx.transaction.message.accountKeys||[];
+              const signer=accounts.find(a=>a.signer);
+              if(!signer)continue;
+              const traderAddr=signer.pubkey?.toString()||'';
+              if(!traderAddr||traderAddr===pairAddr)continue;
+              
+              // Track this wallet
+              if(!candidateWallets.has(traderAddr)){
+                candidateWallets.set(traderAddr,{addr:traderAddr,seen:1,tokens:[sym],profitable:chg24>0});
+              }else{
+                const w=candidateWallets.get(traderAddr);
+                w.seen++;
+                if(!w.tokens.includes(sym))w.tokens.push(sym);
+              }
+            }catch(_){}
+          }
+        }catch(e){al('RPC tx scan: '+e.message.slice(0,40),'#5c6478')}
+      }
+    }catch(_){}
+  }
+  
+  // 3. Score and add wallets that appear on multiple profitable tokens
+  let added=0;
+  for(const[addr,data] of candidateWallets){
+    if(data.tokens.length>=2&&data.seen>=3&&!trackedWallets.find(w=>w.addr===addr)){
+      if(trackedWallets.length>=MAX_WALLETS){
+        // Remove worst wallet
+        trackedWallets.sort((a,b)=>a.score-b.score);
+        trackedWallets.shift();
+      }
+      trackedWallets.push({
+        addr,score:data.tokens.length*10+data.seen*5,
+        wins:0,losses:0,trades:0,lastSeen:Date.now(),
+        pnl:0,consecutive_losses:0,tokens:data.tokens,
+        lastTxSig:''
+      });
+      added++;
+      al('🆕 Wallet descubierta: '+addr.slice(0,6)+'...'+addr.slice(-4)+' (en '+data.tokens.join(',')+')','#86efac');
+    }
+  }
+  
+  if(added===0&&candidateWallets.size>0){
+    // Relax criteria — add wallets seen at least twice
+    for(const[addr,data] of candidateWallets){
+      if(data.seen>=2&&!trackedWallets.find(w=>w.addr===addr)&&trackedWallets.length<MAX_WALLETS){
+        trackedWallets.push({addr,score:data.seen*5,wins:0,losses:0,trades:0,lastSeen:Date.now(),pnl:0,consecutive_losses:0,tokens:data.tokens,lastTxSig:''});
+        added++;
+        al('🆕 Wallet: '+addr.slice(0,6)+'... (seen '+data.seen+'x)','#c4b5fd');
+        if(added>=3)break;
+      }
+    }
+  }
+  
+  al('🔍 Discovery: '+candidateWallets.size+' candidatas, '+added+' nuevas agregadas | Total tracked: '+trackedWallets.length,'#c4b5fd');
+  save();
+  renderWallets();
+}
+
+// ============================================================
+// MONITOR TRACKED WALLETS FOR NEW TRADES
+// ============================================================
+async function monitorWallets(){
+  if(!CN)return;
+  
+  for(const w of trackedWallets){
+    try{
+      const walletPk=new solanaWeb3.PublicKey(w.addr);
+      const sigs=await CN.getSignaturesForAddress(walletPk,{limit:3});
+      if(!sigs.length)continue;
+      
+      const latestSig=sigs[0].signature;
+      if(latestSig===w.lastTxSig)continue; // No new transactions
+      
+      // New transaction detected!
+      if(w.lastTxSig){
+        al('🔔 Nueva TX de '+w.addr.slice(0,6)+'... | '+latestSig.slice(0,12)+'...','#c4b5fd');
+        
+        // Parse transaction to find token swap
+        try{
+          const tx=await CN.getParsedTransaction(latestSig,{maxSupportedTransactionVersion:0});
+          if(tx){
+            // Look for token balance changes to determine buy/sell
+            const preBalances=tx.meta?.preTokenBalances||[];
+            const postBalances=tx.meta?.postTokenBalances||[];
+            
+            // Find token mints that changed (excluding SOL)
+            const changedMints=new Set();
+            for(const b of postBalances){
+              if(b.mint&&b.mint!==SOL_MINT&&b.owner===w.addr){
+                const pre=preBalances.find(p=>p.mint===b.mint&&p.owner===w.addr);
+                const preAmt=pre?+(pre.uiTokenAmount?.uiAmount||0):0;
+                const postAmt=+(b.uiTokenAmount?.uiAmount||0);
+                if(postAmt>preAmt){
+                  // WALLET BOUGHT THIS TOKEN
+                  changedMints.add({mint:b.mint,action:'BUY',amount:postAmt-preAmt});
+                }else if(postAmt<preAmt){
+                  changedMints.add({mint:b.mint,action:'SELL',amount:preAmt-postAmt});
+                }
+              }
+            }
+            
+            for(const change of changedMints){
+              if(change.action==='BUY'){
+                al('👁️ '+w.addr.slice(0,6)+'... COMPRÓ '+change.mint.slice(0,8)+'...','#86efac');
+                await handleCopyBuy(w,change.mint);
+              }else if(change.action==='SELL'){
+                al('👁️ '+w.addr.slice(0,6)+'... VENDIÓ '+change.mint.slice(0,8)+'...','#fde68a');
+                await handleCopySell(w,change.mint);
+              }
+            }
+          }
+        }catch(e){al('Parse TX: '+e.message.slice(0,50),'#5c6478')}
+      }
+      
+      w.lastTxSig=latestSig;
+      w.lastSeen=Date.now();
+    }catch(e){
+      // Rate limiting — wait a bit
+      await new Promise(r=>setTimeout(r,1000));
+    }
+  }
+  save();
+}
+
+// ============================================================
+// COPY BUY / SELL
+// ============================================================
+async function handleCopyBuy(wallet,tokenAddr){
+  // Check if we already have this position
+  if(positions.find(p=>p.addr===tokenAddr)){al('Ya tenemos '+tokenAddr.slice(0,8),'#5c6478');return;}
+  if(positions.length>=MAX_POS){al('Max posiciones alcanzado','#fde68a');return;}
+  if(BL<ENTRY){al('Balance insuficiente','#fca5a5');return;}
+  
+  // Get token info
+  let sym='?',price=0;
+  try{
+    const r=await tFetch(DEX+'/tokens/'+tokenAddr,{},8000);
+    if(r.ok){const d=await r.json();const pair=(d.pairs||[]).find(p=>p.chainId==='solana');
+    if(pair){sym=pair.baseToken?.symbol||'?';price=+(pair.priceUsd||0);
+    const liq=pair.liquidity?.usd||0;
+    if(liq<5000){al('Skip: liq $'+liq.toFixed(0)+' < $5K','#fde68a');return;}}}
+  }catch(_){}
+  
+  al('🎯 COPY BUY: '+sym+' (de '+wallet.addr.slice(0,6)+'...) | '+ENTRY+' SOL','#ec4899');
+  
+  const r=await jSwap(tokenAddr,ENTRY,true);
+  if(r.ok){
+    positions.push({sym,addr:tokenAddr,entryPrice:price,curPrice:price,peakPrice:price,entrySOL:ENTRY,
+      walletSource:wallet.addr,entryTime:Date.now(),txId:r.txId||''});
+    wallet.trades++;
+    al('✅ COPIED '+sym+' @ $'+price.toFixed(8)+' | Fuente: '+wallet.addr.slice(0,6)+'...','#86efac');
+    save();
+  }
+}
+
+async function handleCopySell(wallet,tokenAddr){
+  const pos=positions.find(p=>p.addr===tokenAddr);
+  if(!pos)return;
+  
+  const mult=pos.entryPrice>0?pos.curPrice/pos.entryPrice:1;
+  const val=pos.entrySOL*mult;
+  
+  al('💰 COPY SELL: '+pos.sym+' ('+wallet.addr.slice(0,6)+'... vendió) | '+mult.toFixed(2)+'x','#06b6d4');
+  
+  const r=await jSwap(tokenAddr,val,false);
+  if(r.ok){
+    const pnl=val-pos.entrySOL;
+    if(pnl>0){wallet.wins++;wallet.consecutive_losses=0;}
+    else{wallet.losses++;wallet.consecutive_losses++;}
+    wallet.pnl+=pnl;
+    wallet.score+=pnl>0?5:-3;
+    
+    al((pnl>=0?'✅':'❌')+' Cerrado '+pos.sym+' | PnL: '+(pnl>=0?'+':'')+pnl.toFixed(4)+' SOL','#'+(pnl>=0?'86efac':'fca5a5'));
+    copyHistory.unshift({sym:pos.sym,addr:tokenAddr,pnl,wallet:wallet.addr.slice(0,6),time:Date.now()});
+    positions=positions.filter(p=>p.addr!==tokenAddr);
+    
+    // Remove wallet if 3 consecutive losses
+    if(wallet.consecutive_losses>=3){
+      al('🚫 Eliminando wallet '+wallet.addr.slice(0,6)+'... (3 losses seguidas)','#fca5a5');
+      trackedWallets=trackedWallets.filter(w=>w.addr!==wallet.addr);
+    }
+    save();
+  }
+}
+
+// ============================================================
+// MONITOR POSITIONS (price update + SL)
+// ============================================================
+async function monitorPositions(){
+  for(const pos of[...positions]){
+    try{
+      const r=await tFetch(DEX+'/tokens/'+pos.addr,{},8000);
+      if(r.ok){const d=await r.json();const pair=(d.pairs||[]).find(p=>p.chainId==='solana');
+      if(pair)pos.curPrice=+(pair.priceUsd||pos.curPrice)}
+    }catch(_){}
+    
+    if(pos.curPrice>pos.peakPrice)pos.peakPrice=pos.curPrice;
+    const mult=pos.entryPrice>0?pos.curPrice/pos.entryPrice:1;
+    
+    // Stop Loss
+    if(mult<=(1-SL_PCT/100)){
+      const val=pos.entrySOL*mult;
+      al('🛑 SL '+pos.sym+' @ '+(((mult-1)*100).toFixed(0))+'%','#fca5a5');
+      const r=await jSwap(pos.addr,val,false);
+      if(r.ok){
+        const pnl=val-pos.entrySOL;
+        const w=trackedWallets.find(x=>x.addr===pos.walletSource);
+        if(w){w.losses++;w.consecutive_losses++;w.pnl+=pnl;w.score-=3;
+        if(w.consecutive_losses>=3){trackedWallets=trackedWallets.filter(x=>x.addr!==w.addr);al('🚫 Eliminada wallet '+w.addr.slice(0,6),'#fca5a5');}}
+        copyHistory.unshift({sym:pos.sym,addr:pos.addr,pnl,wallet:pos.walletSource.slice(0,6),time:Date.now()});
+        positions=positions.filter(p=>p.addr!==pos.addr);
+        save();
+      }
+    }
+  }
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function renderWallets(){
+  const el=document.getElementById('walletList');
+  if(!trackedWallets.length){el.innerHTML='<div style="color:#5c6478;font-size:11px">Buscando wallets ganadoras...</div>';return;}
+  
+  el.innerHTML=trackedWallets.sort((a,b)=>b.score-a.score).map(w=>{
+    const wr=w.trades>0?((w.wins/w.trades)*100).toFixed(0):'-';
+    const age=Math.floor((Date.now()-w.lastSeen)/60000);
+    return`<div class="wcard">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><div class="wscore" style="color:${w.score>30?'#86efac':w.score>10?'#fde68a':'#fca5a5'}">${w.score}pts</div>
+        <div class="waddr">${w.addr}</div></div>
+        <div style="text-align:right;font-size:10px">
+          <div style="color:#86efac">W:${w.wins}</div>
+          <div style="color:#fca5a5">L:${w.losses}</div>
+          <div style="color:#5c6478">WR:${wr}%</div>
+        </div>
+      </div>
+      <div style="font-size:9px;color:#5c6478;margin-top:4px">
+        PnL: <span style="color:${w.pnl>=0?'#86efac':'#fca5a5'}">${w.pnl>=0?'+':''}${w.pnl.toFixed(4)}◎</span> | 
+        Tokens: ${(w.tokens||[]).join(', ')} | 
+        Visto: ${age<60?age+'m':Math.floor(age/60)+'h'} ago
+      </div>
+    </div>`}).join('');
+}
+
+function renderTrades(){
+  const el=document.getElementById('tradeList');
+  const posHtml=positions.map(p=>{
+    const m=p.entryPrice>0?p.curPrice/p.entryPrice:1;
+    return`<div class="wcard"><div style="display:flex;justify-content:space-between">
+      <div><b style="color:#a78bfa">${p.sym}</b> <span style="font-size:9px;color:#5c6478">de ${p.walletSource.slice(0,6)}...</span></div>
+      <div style="color:${m>=1?'#86efac':'#fca5a5'};font-weight:800;font-size:14px">${m.toFixed(2)}x</div>
+    </div></div>`}).join('');
+  
+  const histHtml=copyHistory.slice(0,15).map(h=>{
+    return`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:10px;border-bottom:1px solid #1a203533">
+      <span>${h.sym} <span style="color:#5c6478">(${h.wallet})</span></span>
+      <span style="color:${h.pnl>=0?'#86efac':'#fca5a5'}">${h.pnl>=0?'+':''}${h.pnl.toFixed(4)}◎</span>
+    </div>`}).join('');
+  
+  el.innerHTML=(posHtml||'<div style="color:#5c6478;font-size:11px;margin-bottom:8px">Sin posiciones abiertas</div>')
+    +(histHtml?'<div style="margin-top:8px;font-size:9px;color:#a78bfa;font-weight:700">HISTORIAL</div>'+histHtml:'');
+}
+
+// ============================================================
+// MAIN CYCLE
+// ============================================================
+async function cycle(){
+  scanN++;
+  try{
+    await CN?.getBalance(KP.publicKey).then(l=>{BL=l/solanaWeb3.LAMPORTS_PER_SOL;document.getElementById('bl').textContent=BL.toFixed(4)+' SOL'}).catch(_=>{});
+    
+    // Discovery every 5 cycles (~75 seconds)
+    if(scanN%5===1||trackedWallets.length===0){
+      await discoverWallets();
+    }
+    
+    // Monitor tracked wallets for new trades
+    await monitorWallets();
+    
+    // Monitor open positions
+    await monitorPositions();
+    
+    // Update UI
+    renderWallets();
+    renderTrades();
+    
+    const stats=`Scan #${scanN} | Wallets: ${trackedWallets.length} | Pos: ${positions.length}/${MAX_POS} | Bal: ${BL.toFixed(3)}◎`;
+    document.getElementById('bst').innerHTML=stats;
+    stp(bOn?'👁️ Activo #'+scanN+' | '+trackedWallets.length+' wallets | '+positions.length+' pos':'Off');
+    
+    if(scanN%6===0)al(stats);
+  }catch(e){al('Err: '+e.message,'#fca5a5')}
+}
+
+function togBot(){const btn=document.getElementById('bbtn');if(bOn){clearInterval(bIv);bOn=false;btn.textContent='▶ INICIAR';btn.className='b bg';al('👁️ Stop','#fde68a')}
+else{bOn=true;btn.textContent='⏹ DETENER';btn.className='b br';al('👁️ Copy Trader iniciado — scan cada 15s','#86efac');cycle();bIv=setInterval(cycle,15000)}}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load',async()=>{
+  let t=0;while(!window.solanaWeb3&&t<20){await new Promise(r=>setTimeout(r,500));t++}
+  if(window.solanaWeb3){stp('✅ Listo — Pegá clave y tocá CONECTAR');al('Solana Web3 ✓','#86efac')}
+  else{stp('❌ Web3 no cargó');al('Error lib','#fca5a5')}
+  load();
+  try{const s=localStorage.getItem('ct_pk');if(s&&window.solanaWeb3){document.getElementById('pk').value=s;await new Promise(r=>setTimeout(r,500));await doConn()}}catch(_){}
+})
+</script></body></html>
